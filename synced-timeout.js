@@ -38,6 +38,9 @@ var processTasks = function() {
   try {
     this.isProcessing = true;
     let limit = Math.min(this.config.concurrentTaskLimit - this.concurrentTasks, this.config.batchSize);
+    if (limit < 1) {
+      return;
+    }
     let availableMethods = _.keys(this.methodsDefs);
     let batch = this.collection.find(
       {
