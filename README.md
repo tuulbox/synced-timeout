@@ -41,6 +41,14 @@ Polling frequency is controlled with `SyncedTimeout.pollInterval`.
 * stop()
 * setTimeout(method, timeout, args...)
 * runAt((method, date, args...)
+* builder
+  * method
+  * args
+  * runAt
+  * timeout
+  * meta
+  * build
+  
 
 #### TODO ####
 * clearTimeout

@@ -1,4 +1,3 @@
-
 SyncedTimeout = {
   methodsDefs: {},
   isRunning: false,
@@ -43,15 +42,15 @@ var processTasks = function() {
     }
     let availableMethods = _.keys(this.methodsDefs);
     let batch = this.collection.find(
-      {
-        method: {$in: availableMethods},
-        runAt: {$lte: new Date()},
-        assignedAt: {$exists: false}
-      },
-      {
-        sort: {runAt: -1},
-        limit: limit
-      }
+        {
+          method: {$in: availableMethods},
+          runAt: {$lte: new Date()},
+          assignedAt: {$exists: false}
+        },
+        {
+          sort: {runAt: -1},
+          limit: limit
+        }
     );
     batch.forEach(task => {
       //try to assign this task
@@ -115,36 +114,124 @@ SyncedTimeout.methods = function(methods) {
   _.extend(this.methodsDefs, methods);
 };
 
+
+Builder = function() {
+};
+
+/**
+ * Builder for constructing new tasks.
+ * @returns {Builder}
+ */
+SyncedTimeout.builder = function() {
+  return new Builder();
+};
+
+/**
+ * Set the task to run at a specific date
+ * @param runAt
+ * @returns {Builder}
+ */
+Builder.prototype.runAt = function(runAt) {
+  check(runAt, Date);
+  this.runAt = runAt;
+  return this;
+};
+
+/**
+ * Set the task to run after a delay of timeout ms.
+ * @param timeout
+ * @returns {Builder}
+ */
+Builder.prototype.timeout = function(timeout) {
+  check(timeout, Number);
+  this.runAt = new Date();
+  this.runAt.setTime(this.runAt.getTime() + timeout);
+  return this;
+};
+
+/**
+ * Set method and optionally arguments, any additional arguments are used.
+ * @param method
+ * @param {...*} varArgs
+ */
+Builder.prototype.method = function(method, varArgs) {
+  check(method, String);
+  check(SyncedTimeout.methodsDefs[method], Function);
+  this.method = method;
+  if (arguments.length > 1) {
+    this.args = _.toArray(arguments).splice(1);
+  }
+  return this;
+};
+
+/**
+ * Set method arguments array directly
+ * @param args
+ * @returns {Builder}
+ */
+Builder.prototype.args = function(args) {
+  check(args, Array);
+  this.args = args;
+  return this;
+};
+
+/**
+ * Save additional meta data in the collection, e.g. for search/modification outside of this api.
+ * @param meta
+ * @returns {Builder}
+ */
+Builder.prototype.meta = function(meta) {
+  this.meta = meta;
+  return this;
+};
+
+/**
+ * Build the task and return the doc id.
+ * @returns id
+ */
+Builder.prototype.build = function() {
+  check(this.method, String);
+  check(SyncedTimeout.methodsDefs[this.method], Function);
+  check(this.runAt, Date);
+
+  this.args = this.args || [];
+
+  return SyncedTimeout.collection.insert({
+    runAt: this.runAt,
+    method: this.method,
+    args: this.args,
+    meta: this.meta
+  });
+};
+
 /**
  * Create a task to run the named method at the specified time.
  * @param method
  * @param runAt
- * @param {...*} var_args
+ * @param {...*} varArgs
  * @returns task id
  */
-SyncedTimeout.runAt = function(method, runAt, var_args) {
-  check(method, String);
-  check(this.methodsDefs[method], Function);
-  check(runAt, Date);
-
+SyncedTimeout.runAt = function(method, runAt, varArgs) {
   let args = _.toArray(arguments).splice(2);
-
-  return this.collection.insert({
-    runAt: runAt,
-    method: method,
-    args: args
-  });
+  return SyncedTimeout.builder()
+      .method(method)
+      .args(args)
+      .runAt(runAt)
+      .build();
 };
 
 /**
  * Create a task to run the named method after timeout ms.
  * @param method
  * @param timeout
- * @param {...*} var_args
+ * @param {...*} varArgs
  * @returns task id
  */
-SyncedTimeout.setTimeout = function(method, timeout, var_args) {
-  let runAt = new Date();
-  runAt.setTime(runAt.getTime() + timeout);
-  return this.runAt.apply(this,[method, runAt].concat(_.toArray(arguments).slice(2)));
+SyncedTimeout.setTimeout = function(method, timeout, varArgs) {
+  let args = _.toArray(arguments).splice(2);
+  return SyncedTimeout.builder()
+      .method(method)
+      .args(args)
+      .timeout(timeout)
+      .build();
 };
