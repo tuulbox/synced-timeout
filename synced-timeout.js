@@ -15,7 +15,28 @@ function Task(doc) {
   _.extend(this, doc);
 }
 
-//TODO add some helper methods on Task like delay
+/**
+ * Sets the task to run after timeout ms. If called while the task is running, it is rescheduled.
+ * @param timeout
+ */
+Task.prototype.delay = function(timeout) {
+  let runAt = new Date();
+  runAt.setTime(runAt.getTime() + timeout);
+  this.reschedule(runAt);
+};
+
+/**
+ * Sets the task to run at the specified time. If called while the task is running, it is rescheduled.
+ * @param runAt
+ */
+Task.prototype.reschedule = function(runAt) {
+  check(runAt, Date);
+  this.rescheduled = true;
+  SyncedTimeout.collection.update(
+    {_id: this._id},
+    {$set: {runAt: runAt}, $unset: {assignedAt: ''}}
+  );
+};
 
 SyncedTimeout.collection = new Mongo.Collection('tuul_synced_timeout', {
   transform: (doc) => {
@@ -26,6 +47,10 @@ SyncedTimeout.collection = new Mongo.Collection('tuul_synced_timeout', {
 Meteor.startup(function() {
   SyncedTimeout.collection._ensureIndex({method: 1, runAt: 1});
 });
+
+SyncedTimeout.getTask = function(id) {
+  return this.collection.findOne({_id: id});
+};
 
 /**
  * Poll for and process tasks. Used by SyncedTimeout.start.
@@ -42,21 +67,22 @@ var processTasks = function() {
     }
     let availableMethods = _.keys(this.methodsDefs);
     let batch = this.collection.find(
-        {
-          method: {$in: availableMethods},
-          runAt: {$lte: new Date()},
-          assignedAt: {$exists: false}
-        },
-        {
-          sort: {runAt: -1},
-          limit: limit
-        }
+      {
+        method: {$in: availableMethods},
+        runAt: {$lte: new Date()},
+        assignedAt: {$exists: false}
+      },
+      {
+        sort: {runAt: -1},
+        limit: limit
+      }
     );
+
     batch.forEach(task => {
       //try to assign this task
       let assigned = this.collection.update(
-          {_id: task._id, assignedAt: {$ne: true}},
-          {$set: {assignedAt: new Date()}}
+        {_id: task._id, assignedAt: {$exists: false}},
+        {$set: {assignedAt: new Date()}}
       );
       if (!assigned) {
         return; //some other process got it
@@ -74,8 +100,10 @@ var processTasks = function() {
           this.concurrentTasks--;
         }
 
-        //TODO support delayed tasks, or otherwise not removing it
-        this.collection.remove({_id: task._id});
+        //remove task unless it has been rescheduled
+        if (!task.rescheduled) {
+          this.collection.remove({_id: task._id});
+        }
       });
     });
   } catch (err) {
@@ -186,22 +214,27 @@ Builder.prototype.meta = function(meta) {
 };
 
 /**
- * Build the task and return the doc id.
- * @returns id
+ * Build the task.
+ * @returns Task
  */
 Builder.prototype.build = function() {
+  this.args = this.args || [];
+  this.runAt = this.runAt || new Date();
+
   check(this.method, String);
   check(SyncedTimeout.methodsDefs[this.method], Function);
   check(this.runAt, Date);
 
-  this.args = this.args || [];
-
-  return SyncedTimeout.collection.insert({
+  let doc = {
+    _id: Random.id(),
     runAt: this.runAt,
     method: this.method,
     args: this.args,
     meta: this.meta
-  });
+  };
+
+  SyncedTimeout.collection.insert(doc);
+  return new Task(doc);
 };
 
 /**
@@ -209,15 +242,15 @@ Builder.prototype.build = function() {
  * @param method
  * @param runAt
  * @param {...*} varArgs
- * @returns task id
+ * @returns Task
  */
 SyncedTimeout.runAt = function(method, runAt, varArgs) {
   let args = _.toArray(arguments).splice(2);
   return SyncedTimeout.builder()
-      .method(method)
-      .args(args)
-      .runAt(runAt)
-      .build();
+    .method(method)
+    .args(args)
+    .runAt(runAt)
+    .build();
 };
 
 /**
@@ -225,13 +258,13 @@ SyncedTimeout.runAt = function(method, runAt, varArgs) {
  * @param method
  * @param timeout
  * @param {...*} varArgs
- * @returns task id
+ * @returns Task
  */
 SyncedTimeout.setTimeout = function(method, timeout, varArgs) {
   let args = _.toArray(arguments).splice(2);
   return SyncedTimeout.builder()
-      .method(method)
-      .args(args)
-      .timeout(timeout)
-      .build();
+    .method(method)
+    .args(args)
+    .timeout(timeout)
+    .build();
 };

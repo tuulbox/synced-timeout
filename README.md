@@ -36,24 +36,24 @@ Polling frequency is controlled with `SyncedTimeout.pollInterval`.
 
 ### API ###
 
-* methods(methodDefs)
+* methods({foo: function(){...}})
 * start()
 * stop()
-* setTimeout(method, timeout, args...)
+* setTimeout(method, timeoutMs, args...)
 * runAt((method, date, args...)
 * builder
-  * method
-  * args
-  * runAt
-  * timeout
-  * meta
-  * build
+  * method(method, args...)
+  * args([arg1, arg2])
+  * runAt(date)
+  * timeout(timeoutMs)
+  * meta({foo: 42})
+  * build() -> Task
+* Task
+  * task.delay(timeoutMs)
+  * task.reschedule(date)
   
 
 #### TODO ####
 * clearTimeout
-* updateTimeout
-
-* task.delay
 
 * config.semantics = atLeastOnce
