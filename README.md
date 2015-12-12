@@ -1,5 +1,7 @@
 tuul:synced-timeout
 ========================
+[![Build
+Status](https://travis-ci.org/tuulbox/synced-timeout.svg)](https://travis-ci.org/tuulbox/synced-timeout)
 
 A simple distributed timeout and queue system for Meteor. It supported scheduling tasks to run in the future (or now) 
 across one or more meteor instances. It is implemented as a simple Mongo queue-like collection.
