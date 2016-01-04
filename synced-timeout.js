@@ -94,7 +94,7 @@ var processTasks = function() {
         try {
           this.methodsDefs[task.method].apply(task, task.args);
         } catch (err) {
-          console.log(err);
+          console.log(err, err && err.stack);
           //TODO maybe kick it back, add a blacklist, increment a counter
         } finally {
           this.concurrentTasks--;
@@ -107,7 +107,7 @@ var processTasks = function() {
       });
     });
   } catch (err) {
-    console.log(err);
+    console.log(err, err && err.stack);
   } finally {
     this.isProcessing = false;
   }
