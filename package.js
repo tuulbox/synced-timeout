@@ -1,6 +1,6 @@
 Package.describe({
   name: 'tuul:synced-timeout',
-  version: '0.0.3',
+  version: '0.0.4',
   summary: 'A simple distributed timeout (timed task) system for Meteor',
   git: 'https://github.com/tuulbox/synced-timeout.git',
   documentation: 'README.md'
